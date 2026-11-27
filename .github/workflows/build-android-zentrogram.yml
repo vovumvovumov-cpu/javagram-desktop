@@ -1,0 +1,79 @@
+name: Build Zentrogram Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Download source
+        run: |
+          curl -L --fail --retry 3 \
+            "https://github.com/kariblanov-dotcom/javagram-desktop/releases/download/v2.26-javagram/JavaGram-APK-src.tar.gz" \
+            -o source.tar.gz
+          echo "dd17abc26d6523b993a28e22a95486b1a0aca2b5b5661de99a19c4a4cfc24140  source.tar.gz" | sha256sum -c -
+          tar -xzf source.tar.gz
+
+      - name: Apply branding
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          old = "org.javagram.messenger.web"
+          new = "org.zentrogram.messenger"
+          for p in Path("src").rglob("*"):
+              if p.is_file() and p.suffix in {".xml", ".smali", ".json", ".txt", ".properties", ".yml"}:
+                  try:
+                      s = p.read_text(encoding="utf-8")
+                  except UnicodeDecodeError:
+                      continue
+                  if old in s:
+                      p.write_text(s.replace(old, new), encoding="utf-8")
+          p = Path("src/res/values/strings.xml")
+          s = p.read_text(encoding="utf-8")
+          s = s.replace("javagram Beta", "Zentrogram Beta")
+          s = s.replace(">javagram<", ">Zentrogram<")
+          p.write_text(s, encoding="utf-8")
+          m = Path("src/AndroidManifest.xml").read_text()
+          assert 'package="org.zentrogram.messenger"' in m
+          assert old not in m
+          PY
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build APK
+        run: |
+          curl -L --fail \
+            "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
+            -o apktool.jar
+          java -jar apktool.jar b -f src -o unsigned.apk
+
+      - name: Sign test APK
+        run: |
+          B="$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)"
+          keytool -genkeypair -noprompt \
+            -keystore temp.jks -storepass temp-pass-12345 \
+            -keypass temp-pass-12345 -alias zentrogram \
+            -keyalg RSA -keysize 2048 -validity 3650 \
+            -dname "CN=Zentrogram Test"
+          "$B/zipalign" -f -p 4 unsigned.apk aligned.apk
+          "$B/apksigner" sign \
+            --ks temp.jks --ks-pass pass:temp-pass-12345 \
+            --key-pass pass:temp-pass-12345 \
+            --out Zentrogram-test.apk aligned.apk
+          "$B/apksigner" verify Zentrogram-test.apk
+
+      - name: Save APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Zentrogram-test-APK
+          path: Zentrogram-test.apk
+          retention-days: 7
