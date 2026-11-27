@@ -1,16 +1,16 @@
-AppName               JavaGram Desktop
-ShortAppName          JavaGram
-ApplicationName       JavaGramDesktop
-CompanyName           JavaGram
-BundleIdentifier      org.javagram.desktop
-MacOSBundleIdentifier com.javagram.JavaGram
-AppXIdentityName      JavaGram.JavaGramDesktop
-AppXStartupTaskId     JavaGramStartupTask
-OutputName            JavaGram
-OutputBasePrefix      javagram-setup
+AppName               Zentrogram
+ShortAppName          Zentrogram
+ApplicationName       Zentrogram
+CompanyName           Zentrogram
+BundleIdentifier      org.zentrogram.desktop
+MacOSBundleIdentifier com.zentrogram.Zentrogram
+AppXIdentityName      Zentrogram.ZentrogramDesktop
+AppXStartupTaskId     ZentrogramStartupTask
+OutputName            Zentrogram
+OutputBasePrefix      zentrogram-setup
 UrlScheme             srv
 AppId                 931A266D-A4AF-4DE1-A59A-AAC977626CA3
-Description           JavaGram Desktop messenger
+Description           Zentrogram messenger
 Homepage              https://jg.cc
 RemoteDomain          https://jg.cc
 BrandColor            9B51E0
