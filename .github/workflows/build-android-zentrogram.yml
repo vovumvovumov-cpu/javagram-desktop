@@ -1,0 +1,112 @@
+name: Build Zentrogram Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Download and verify Android source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -L --fail --retry 3 \
+            "https://github.com/kariblanov-dotcom/javagram-desktop/releases/download/v2.26-javagram/JavaGram-APK-src.tar.gz" \
+            -o source.tar.gz
+          echo "dd17abc26d6523b993a28e22a95486b1a0aca2b5b5661de99a19c4a4cfc24140  source.tar.gz" | sha256sum -c -
+          mkdir source
+          tar -xzf source.tar.gz -C source
+          MANIFEST="$(find source -type f -name AndroidManifest.xml -print -quit)"
+          test -n "$MANIFEST"
+          SRC="$(dirname "$MANIFEST")"
+          test -f "$SRC/apktool.yml"
+          echo "ANDROID_SRC=$SRC" >> "$GITHUB_ENV"
+          echo "Found apktool project at $SRC"
+
+      - name: Apply Zentrogram package and display name
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          src = Path(os.environ["ANDROID_SRC"])
+          old = "org.javagram.messenger.web"
+          new = "org.zentrogram.messenger"
+          changed = 0
+          for p in src.rglob("*"):
+              if not p.is_file() or p.suffix.lower() not in {
+                  ".xml", ".smali", ".json", ".txt", ".properties", ".yml"
+              }:
+                  continue
+              try:
+                  data = p.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              updated = data.replace(old, new)
+              if updated != data:
+                  p.write_text(updated, encoding="utf-8")
+                  changed += 1
+          manifest = src / "AndroidManifest.xml"
+          data = manifest.read_text(encoding="utf-8")
+          data = re.sub(r'package="[^"]+"', 'package="org.zentrogram.messenger"', data, count=1)
+          data = re.sub(r'android:label="JavaGram[^"]*"', 'android:label="Zentrogram"', data)
+          manifest.write_text(data, encoding="utf-8")
+          strings = src / "res/values/strings.xml"
+          if strings.exists():
+              data = strings.read_text(encoding="utf-8")
+              data = re.sub(r'(?<=>)JavaGram(?=<)', 'Zentrogram', data)
+              data = re.sub(r'(?<=>)javagram(?=<)', 'Zentrogram', data, flags=re.I)
+              strings.write_text(data, encoding="utf-8")
+          assert 'package="org.zentrogram.messenger"' in manifest.read_text(encoding="utf-8")
+          assert old not in manifest.read_text(encoding="utf-8")
+          print(f"Updated package references in {changed} source files")
+          PY
+
+      - name: Set up Java and Android SDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android build tools
+        uses: android-actions/setup-android@v3
+
+      - name: Build unsigned APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "build-tools;35.0.0" "platforms;android-35"
+          curl -L --fail --retry 3 \
+            "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
+            -o apktool.jar
+          java -jar apktool.jar b -f "$ANDROID_SRC" -o unsigned.apk
+
+      - name: Align and sign APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          B="$ANDROID_HOME/build-tools/35.0.0"
+          keytool -genkeypair -noprompt \
+            -keystore temp.jks -storepass temp-pass-12345 \
+            -keypass temp-pass-12345 -alias zentrogram \
+            -keyalg RSA -keysize 2048 -validity 3650 \
+            -dname "CN=Zentrogram Test"
+          "$B/zipalign" -f -p 4 unsigned.apk aligned.apk
+          "$B/apksigner" sign \
+            --ks temp.jks --ks-pass pass:temp-pass-12345 \
+            --key-pass pass:temp-pass-12345 \
+            --out Zentrogram-test.apk aligned.apk
+          "$B/apksigner" verify Zentrogram-test.apk
+
+      - name: Upload test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Zentrogram-test-APK
+          path: Zentrogram-test.apk
+          retention-days: 7
