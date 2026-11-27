@@ -1,0 +1,19 @@
+services:
+  - type: worker
+    name: zentrogram-numbers-bot
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./zentrogram-bot/Dockerfile
+    dockerContext: ./zentrogram-bot
+    autoDeploy: true
+    disk:
+      name: zentrogram-bot-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: BOT_DB_PATH
+        value: /var/data/zentrogram-bot.sqlite3
+      - key: BOT_ADMIN_IDS
+        sync: false
