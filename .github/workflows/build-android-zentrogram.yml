@@ -87,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null
-          yes | sdkmanager "build-tools;35.0.0" "platforms;android-35"
+          sdkmanager "build-tools;35.0.0" "platforms;android-35"
           curl -L --fail --retry 3 \
             "https://github.com/iBotPeaches/Apktool/releases/download/v2.9.3/apktool_2.9.3.jar" \
             -o apktool.jar
