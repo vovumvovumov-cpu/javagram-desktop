@@ -33,6 +33,7 @@ namespace Intro {
 namespace details {
 namespace {
 
+// Virtual IDs are mapped to OwpenGram email-signup phone identities.
 [[nodiscard]] QString EncodeZentrogramId(const QString &value) {
 	const auto id = value.trimmed().toUpper();
 	static const auto Pattern = QRegularExpression("^JG-[0-9A-F]{10}$");
