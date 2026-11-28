@@ -72,7 +72,7 @@ PhoneWidget::PhoneWidget(
 	_phone->setInputMethodHints(Qt::ImhNoPredictiveText | Qt::ImhNoAutoUppercase);
 	connect(_phone, &QLineEdit::textChanged, [=] { hidePhoneError(); });
 	setTitleText(tr::lng_phone_title());
-	setDescriptionText(tr::lng_phone_desc());
+	setDescriptionText(rpl::single("Введите виртуальный ID, полученный на сайте Zentrogram."));
 	setErrorCentered(true);
 	setupQrLogin();
 }
@@ -114,6 +114,7 @@ void PhoneWidget::showPhoneError(rpl::producer<QString> text) {
 }
 
 void PhoneWidget::hidePhoneError() {
+	_phone->setStyleSheet(QString());
 	hideError();
 }
 
@@ -175,7 +176,8 @@ void PhoneWidget::phoneSubmitDone(const MTPauth_SentCode &result) {
 		fillSentCodeData(data);
 		getData()->phone = _sentPhone;
 		getData()->phoneHash = qba(data.vphone_code_hash());
-		if (getData()->emailStatus == EmailStatus::SetupRequired) {
+		if (getData()->virtualId.isEmpty()
+			&& getData()->emailStatus == EmailStatus::SetupRequired) {
 			return goNext<EmailWidget>();
 		}
 		const auto next = data.vnext_type();
