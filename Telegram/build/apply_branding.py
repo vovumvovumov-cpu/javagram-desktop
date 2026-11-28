@@ -121,8 +121,8 @@ def WriteGenerated(path, content, changes, check=False):
 def GenerateHeader(values):
     lines = [
         '/*',
-        'This file is part of JavaGram Desktop,',
-        'a Telegram Desktop fork for the JavaGram multi-server client.',
+        'This file is part of %s,' % values['AppName'],
+        'a Telegram Desktop fork for the %s multi-server client.' % values['ShortAppName'],
         '',
         'For license and copyright information please follow this link:',
         'https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL',
