@@ -27,22 +27,32 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "core/application.h"
 #include "window/window_controller.h"
 #include "window/window_session_controller.h"
-#include "countries/countries_instance.h" // Countries::Groups
+#include <QtWidgets/QLineEdit>
 
 namespace Intro {
 namespace details {
 namespace {
 
-[[nodiscard]] bool AllowPhoneAttempt(const QString &phone) {
-	const auto digits = ranges::count_if(
-		phone,
-		[](QChar ch) { return ch.isNumber(); });
-	return (digits > 1);
-}
-
-[[nodiscard]] QString DigitsOnly(QString value) {
-	static const auto RegExp = QRegularExpression("[^0-9]");
-	return value.replace(RegExp, QString());
+[[nodiscard]] QString EncodeZentrogramId(const QString &value) {
+	const auto id = value.trimmed().toUpper();
+	static const auto Pattern = QRegularExpression("^JG-[0-9A-F]{10}$");
+	if (!Pattern.match(id).hasMatch()) {
+		return QString();
+	}
+	const auto email = QString("jg-%1@zentrogram.invalid").arg(id.mid(3).toLower());
+	QString encoded = "888";
+	for (const auto ch : email) {
+		switch (ch.unicode()) {
+		case '@': encoded += "q0"; break;
+		case '.': encoded += "q1"; break;
+		case '-': encoded += "q2"; break;
+		case '_': encoded += "q3"; break;
+		case '+': encoded += "q4"; break;
+		case 'q': encoded += "q5"; break;
+		default: encoded += ch;
+		}
+	}
+	return encoded;
 }
 
 } // namespace
@@ -52,55 +62,19 @@ PhoneWidget::PhoneWidget(
 	not_null<Main::Account*> account,
 	not_null<Data*> data)
 : Step(parent, account, data)
-, _country(
-	this,
-	getData()->controller->uiShow(),
-	st::introCountry)
-, _code(this, st::introCountryCode)
-, _phone(
-	this,
-	st::introPhone,
-	[](const QString &s) { return Countries::Groups(s); })
+, _phone(new QLineEdit(this))
 , _checkRequestTimer([=] { checkRequest(); }) {
-	_code->setAccessibleName(tr::lng_country_code(tr::now));
-	_phone->setAccessibleName(tr::lng_phone_number(tr::now));
-	_phone->frontBackspaceEvent(
-	) | rpl::on_next([=](not_null<QKeyEvent*> e) {
-		_code->startErasing(e);
-	}, _code->lifetime());
-
-	_country->codeChanged(
-	) | rpl::on_next([=](const QString &code) {
-		_code->codeSelected(code);
-		_phone->chooseCode(code);
-	}, _country->lifetime());
-	_code->codeChanged(
-	) | rpl::on_next([=](const QString &code) {
-		_country->onChooseCode(code);
-		_phone->chooseCode(code);
-	}, _code->lifetime());
-	_code->addedToNumber(
-	) | rpl::on_next([=](const QString &added) {
-		_phone->addedToNumber(added);
-	}, _phone->lifetime());
-	_code->spacePressed() | rpl::on_next([=] {
-		submit();
-	}, _code->lifetime());
-	connect(_phone, &Ui::PhonePartInput::changed, [=] { phoneChanged(); });
-	connect(_code, &Ui::CountryCodeInput::changed, [=] { phoneChanged(); });
-
+	_phone->setAccessibleName("Zentrogram virtual ID");
+	_phone->setPlaceholderText("JG-0123ABCDEF");
+	_phone->setMaxLength(13);
+	_phone->setMinimumHeight(st::introPhone.height);
+	_phone->setClearButtonEnabled(true);
+	_phone->setInputMethodHints(Qt::ImhNoPredictiveText | Qt::ImhNoAutoUppercase);
+	connect(_phone, &QLineEdit::textChanged, [=] { phoneChanged(); });
 	setTitleText(tr::lng_phone_title());
 	setDescriptionText(tr::lng_phone_desc());
-	getData()->updated.events(
-	) | rpl::on_next([=] {
-		countryChanged();
-	}, lifetime());
 	setErrorCentered(true);
 	setupQrLogin();
-
-	if (!_country->chooseCountry(getData()->country)) {
-		_country->chooseCountry(u"US"_q);
-	}
 	_changed = false;
 }
 
@@ -132,25 +106,16 @@ void PhoneWidget::setupQrLogin() {
 
 void PhoneWidget::resizeEvent(QResizeEvent *e) {
 	Step::resizeEvent(e);
-	_country->moveToLeft(contentLeft(), contentTop() + st::introStepFieldTop);
-	auto phoneTop = _country->y() + _country->height() + st::introPhoneTop;
-	_code->moveToLeft(contentLeft(), phoneTop);
-	_phone->moveToLeft(contentLeft() + _country->width() - st::introPhone.width, phoneTop);
+	_phone->setGeometry(contentLeft(), contentTop() + st::introStepFieldTop, st::introPhone.width, st::introPhone.height);
 }
 
 void PhoneWidget::showPhoneError(rpl::producer<QString> text) {
-	_phone->showError();
+	_phone->setStyleSheet("border: 1px solid #d9534f;");
 	showError(std::move(text));
 }
 
 void PhoneWidget::hidePhoneError() {
 	hideError();
-}
-
-void PhoneWidget::countryChanged() {
-	if (!_changed) {
-		selectCountry(getData()->country);
-	}
 }
 
 void PhoneWidget::phoneChanged() {
@@ -162,46 +127,17 @@ void PhoneWidget::submit() {
 	if (_sentRequest || isHidden()) {
 		return;
 	}
-
-	{
-		const auto hasCodeButWaitingPhone = _code->hasFocus()
-			&& (_code->getLastText().size() > 1)
-			&& _phone->getLastText().isEmpty();
-		if (hasCodeButWaitingPhone) {
-			_phone->hideError();
-			_phone->setFocus();
-			return;
-		}
-	}
-	const auto phone = fullNumber();
-	if (!AllowPhoneAttempt(phone)) {
-		showPhoneError(tr::lng_bad_phone());
+	const auto visibleId = _phone->text().trimmed().toUpper();
+	const auto phone = EncodeZentrogramId(visibleId);
+	if (phone.isEmpty()) {
+		showPhoneError(rpl::single("Enter a valid Zentrogram ID: JG- followed by 10 hex characters."));
 		_phone->setFocus();
 		return;
 	}
-
 	cancelNearestDcRequest();
-
-	// Check if such account is authorized already.
-	const auto phoneDigits = DigitsOnly(phone);
-	for (const auto &[index, existing] : Core::App().domain().accounts()) {
-		const auto raw = existing.get();
-		if (const auto session = raw->maybeSession()) {
-			if (raw->mtp().environment() == account().mtp().environment()
-				&& raw->serverScope() == account().serverScope()
-				&& DigitsOnly(session->user()->phone()) == phoneDigits) {
-				crl::on_main(raw, [=] {
-					Core::App().domain().activate(raw);
-				});
-				return;
-			}
-		}
-	}
-
 	hidePhoneError();
-
 	_checkRequestTimer.callEach(1000);
-
+	getData()->virtualId = visibleId;
 	_sentPhone = phone;
 	api().instance().setUserPhone(_sentPhone);
 	_sentRequest = api().request(MTPauth_SendCode(
@@ -243,7 +179,7 @@ void PhoneWidget::phoneSubmitDone(const MTPauth_SentCode &result) {
 
 	result.match([&](const MTPDauth_sentCode &data) {
 		fillSentCodeData(data);
-		getData()->phone = DigitsOnly(_sentPhone);
+		getData()->phone = _sentPhone;
 		getData()->phoneHash = qba(data.vphone_code_hash());
 		if (getData()->emailStatus == EmailStatus::SetupRequired) {
 			return goNext<EmailWidget>();
@@ -288,15 +224,11 @@ void PhoneWidget::phoneSubmitFail(const MTP::Error &error) {
 }
 
 QString PhoneWidget::fullNumber() const {
-	return _code->getLastText() + _phone->getLastText();
-}
-
-void PhoneWidget::selectCountry(const QString &country) {
-	_country->chooseCountry(country);
+	return _phone->text().trimmed();
 }
 
 void PhoneWidget::setInnerFocus() {
-	_phone->setFocusFast();
+	_phone->setFocus();
 }
 
 void PhoneWidget::activate() {
