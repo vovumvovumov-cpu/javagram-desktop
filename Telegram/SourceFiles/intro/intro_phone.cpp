@@ -28,18 +28,23 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_controller.h"
 #include "window/window_session_controller.h"
 #include <QtWidgets/QLineEdit>
+#include <QtCore/QRegularExpression>
 
 namespace Intro {
 namespace details {
 namespace {
 
 [[nodiscard]] QString EncodeZentrogramId(const QString &value) {
-	const auto id = value.trimmed().toUpper();
-	static const auto Pattern = QRegularExpression("^JG-[0-9A-F]{10}$");
-	if (!Pattern.match(id).hasMatch()) {
+	auto national = value;
+	national.remove(QRegularExpression("[^0-9]"));
+	if (national.size() == 11 && national.startsWith('7')) {
+		national = national.mid(1);
+	}
+	static const auto Pattern = QRegularExpression("^777[0-9]{7}$");
+	if (!Pattern.match(national).hasMatch()) {
 		return QString();
 	}
-	const auto email = QString("jg-%1@zentrogram.invalid").arg(id.mid(3).toLower());
+	const auto email = QString("%1@zentrogram.invalid").arg(national);
 	QString encoded = "888";
 	for (const auto ch : email) {
 		switch (ch.unicode()) {
@@ -64,15 +69,15 @@ PhoneWidget::PhoneWidget(
 : Step(parent, account, data)
 , _phone(new QLineEdit(this))
 , _checkRequestTimer([=] { checkRequest(); }) {
-	_phone->setAccessibleName("Zentrogram virtual ID");
-	_phone->setPlaceholderText("JG-0123ABCDEF");
-	_phone->setMaxLength(13);
+	_phone->setAccessibleName("Zentrogram virtual phone number");
+	_phone->setPlaceholderText("+7 777 777-77-77");
+	_phone->setMaxLength(18);
 	_phone->setMinimumHeight(st::introPhone.height);
 	_phone->setClearButtonEnabled(true);
 	_phone->setInputMethodHints(Qt::ImhNoPredictiveText | Qt::ImhNoAutoUppercase);
 	connect(_phone, &QLineEdit::textChanged, [=] { hidePhoneError(); });
 	setTitleText(tr::lng_phone_title());
-	setDescriptionText(rpl::single("Введите виртуальный ID, полученный на сайте Zentrogram."));
+	setDescriptionText(rpl::single("Введите виртуальный номер, полученный на сайте Zentrogram."));
 	setErrorCentered(true);
 	setupQrLogin();
 }
@@ -125,7 +130,7 @@ void PhoneWidget::submit() {
 	const auto visibleId = _phone->text().trimmed().toUpper();
 	const auto phone = EncodeZentrogramId(visibleId);
 	if (phone.isEmpty()) {
-		showPhoneError(rpl::single("Enter a valid Zentrogram ID: JG- followed by 10 hex characters."));
+		showPhoneError(rpl::single("Введите номер в формате +7 777 777-77-77."));
 		_phone->setFocus();
 		return;
 	}
