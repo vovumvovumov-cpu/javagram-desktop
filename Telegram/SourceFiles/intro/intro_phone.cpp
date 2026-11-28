@@ -70,12 +70,11 @@ PhoneWidget::PhoneWidget(
 	_phone->setMinimumHeight(st::introPhone.height);
 	_phone->setClearButtonEnabled(true);
 	_phone->setInputMethodHints(Qt::ImhNoPredictiveText | Qt::ImhNoAutoUppercase);
-	connect(_phone, &QLineEdit::textChanged, [=] { phoneChanged(); });
+	connect(_phone, &QLineEdit::textChanged, [=] { hidePhoneError(); });
 	setTitleText(tr::lng_phone_title());
 	setDescriptionText(tr::lng_phone_desc());
 	setErrorCentered(true);
 	setupQrLogin();
-	_changed = false;
 }
 
 QString PhoneWidget::accessibilityName() {
@@ -116,11 +115,6 @@ void PhoneWidget::showPhoneError(rpl::producer<QString> text) {
 
 void PhoneWidget::hidePhoneError() {
 	hideError();
-}
-
-void PhoneWidget::phoneChanged() {
-	_changed = true;
-	hidePhoneError();
 }
 
 void PhoneWidget::submit() {
@@ -215,7 +209,7 @@ void PhoneWidget::phoneSubmitFail(const MTP::Error &error) {
 	if (err == u"PHONE_NUMBER_FLOOD"_q) {
 		Ui::show(Ui::MakeInformBox(tr::lng_error_phone_flood()));
 	} else if (err == u"PHONE_NUMBER_INVALID"_q) { // show error
-		showPhoneError(tr::lng_bad_phone());
+		showPhoneError(rpl::single("Zentrogram server did not accept this virtual ID."));
 	} else if (err == u"PHONE_NUMBER_BANNED"_q) {
 		Ui::ShowPhoneBannedError(getData()->controller, _sentPhone);
 	} else if (!MTP::IgnoreError(error)) {
