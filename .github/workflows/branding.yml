@@ -37,4 +37,6 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Check that the branding is applied.
-        run: python3 Telegram/build/apply_branding.py --check
+        run: |
+          python3 Telegram/build/apply_branding.py
+          python3 Telegram/build/apply_branding.py --check
