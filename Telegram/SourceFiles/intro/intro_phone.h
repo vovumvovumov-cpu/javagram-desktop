@@ -7,16 +7,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
-#include "ui/countryinput.h"
 #include "intro/intro_step.h"
 #include "base/timer.h"
 
-namespace Ui {
-class PhonePartInput;
-class CountryCodeInput;
-class RoundButton;
-class FlatLabel;
-} // namespace Ui
+class QLineEdit;
 
 namespace Intro {
 namespace details {
@@ -30,7 +24,6 @@ public:
 
 	QString accessibilityName() override;
 
-	void selectCountry(const QString &country);
 
 	void setInnerFocus() override;
 	void activate() override;
@@ -49,7 +42,6 @@ private:
 	void setupQrLogin();
 	void phoneChanged();
 	void checkRequest();
-	void countryChanged();
 
 	void phoneSubmitDone(const MTPauth_SentCode &result);
 	void phoneSubmitFail(const MTP::Error &error);
@@ -62,9 +54,7 @@ private:
 
 	bool _changed = false;
 
-	object_ptr<CountryInput> _country;
-	object_ptr<Ui::CountryCodeInput> _code;
-	object_ptr<Ui::PhonePartInput> _phone;
+	QLineEdit *_phone = nullptr;
 
 	QString _sentPhone;
 	mtpRequestId _sentRequest = 0;
