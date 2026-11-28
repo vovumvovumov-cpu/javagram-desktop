@@ -92,7 +92,8 @@ void CodeWidget::updateDescText() {
 			: getData()->emailPatternLogin)
 		: QString();
 	setDescriptionText(!getData()->virtualId.isEmpty()
-		? rpl::single("Код подтверждения появится на сайте Zentrogram.")
+		? rpl::single(TextWithEntities::Simple(
+			"Код подтверждения появится на сайте Zentrogram."))
 		: !emailPattern.isEmpty()
 		? tr::lng_intro_email_confirm_subtitle(
 			lt_email,
