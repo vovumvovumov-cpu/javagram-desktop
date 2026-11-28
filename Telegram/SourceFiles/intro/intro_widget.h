@@ -56,6 +56,7 @@ struct Data {
 
 	QString country;
 	QString phone;
+	QString virtualId;
 	QByteArray phoneHash;
 
 	CallStatus callStatus = CallStatus::Disabled;
