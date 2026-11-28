@@ -86,9 +86,11 @@ void CodeWidget::updateDescText() {
 	const auto byTelegram = getData()->codeByTelegram;
 	const auto isFragment = !getData()->codeByFragmentUrl.isEmpty();
 	_isFragment = isFragment;
-	const auto emailPattern = !getData()->emailPatternSetup.isEmpty()
-		? getData()->emailPatternSetup
-		: getData()->emailPatternLogin;
+	const auto emailPattern = getData()->virtualId.isEmpty()
+		? (!getData()->emailPatternSetup.isEmpty()
+			? getData()->emailPatternSetup
+			: getData()->emailPatternLogin)
+		: QString();
 	setDescriptionText(!emailPattern.isEmpty()
 		? tr::lng_intro_email_confirm_subtitle(
 			lt_email,
