@@ -52,7 +52,9 @@ CodeWidget::CodeWidget(
 	setTitleText(_isFragment.value(
 	) | rpl::map([=](bool isFragment) {
 		return !isFragment
-			? rpl::single(Ui::FormatPhone(getData()->phone))
+			? rpl::single(getData()->virtualId.isEmpty()
+				? Ui::FormatPhone(getData()->phone)
+				: getData()->virtualId)
 			: tr::lng_intro_fragment_title();
 	}) | rpl::flatten_latest());
 
