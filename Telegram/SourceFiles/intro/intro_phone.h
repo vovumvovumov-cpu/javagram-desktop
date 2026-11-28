@@ -40,7 +40,6 @@ protected:
 
 private:
 	void setupQrLogin();
-	void phoneChanged();
 	void checkRequest();
 
 	void phoneSubmitDone(const MTPauth_SentCode &result);
@@ -51,8 +50,6 @@ private:
 
 	void showPhoneError(rpl::producer<QString> text);
 	void hidePhoneError();
-
-	bool _changed = false;
 
 	QLineEdit *_phone = nullptr;
 
