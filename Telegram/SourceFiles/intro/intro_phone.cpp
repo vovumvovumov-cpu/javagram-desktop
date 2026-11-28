@@ -29,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_session_controller.h"
 #include <QtWidgets/QLineEdit>
 #include <QtCore/QRegularExpression>
+// CI validation for the virtual phone number login format.
 
 namespace Intro {
 namespace details {
